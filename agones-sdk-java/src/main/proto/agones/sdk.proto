@@ -1,0 +1,64 @@
+// Derived from Agones v1.61.0 proto/sdk/sdk.proto (Apache License 2.0).
+// HTTP annotation-only options were removed; gRPC service and message wire definitions are unchanged.
+syntax = "proto3";
+package agones.dev.sdk;
+option java_package = "cn.arkmillion.agones.internal.proto";
+option java_multiple_files = true;
+option java_outer_classname = "AgonesCoreProto";
+
+service SDK {
+  rpc Ready (Empty) returns (Empty);
+  rpc Allocate (Empty) returns (Empty);
+  rpc Shutdown (Empty) returns (Empty);
+  rpc Health (stream Empty) returns (Empty);
+  rpc GetGameServer (Empty) returns (GameServer);
+  rpc WatchGameServer (Empty) returns (stream GameServer);
+  rpc SetLabel (KeyValue) returns (Empty);
+  rpc SetAnnotation (KeyValue) returns (Empty);
+  rpc Reserve (Duration) returns (Empty);
+}
+
+message Empty {}
+message KeyValue { string key = 1; string value = 2; }
+message Duration { int64 seconds = 1; }
+
+message GameServer {
+  ObjectMeta object_meta = 1;
+  Spec spec = 2;
+  Status status = 3;
+  message ObjectMeta {
+    string name = 1;
+    string namespace = 2;
+    string uid = 3;
+    string resource_version = 4;
+    int64 generation = 5;
+    int64 creation_timestamp = 6;
+    int64 deletion_timestamp = 7;
+    map<string, string> annotations = 8;
+    map<string, string> labels = 9;
+  }
+  message Spec {
+    Health health = 1;
+    message Health {
+      bool disabled = 1;
+      int32 period_seconds = 2;
+      int32 failure_threshold = 3;
+      int32 initial_delay_seconds = 4;
+    }
+  }
+  message Status {
+    message Address { string type = 1; string address = 2; }
+    message Port { string name = 1; int32 port = 2; }
+    message PlayerStatus { int64 count = 1; int64 capacity = 2; repeated string ids = 3; }
+    message CounterStatus { int64 count = 1; int64 capacity = 2; }
+    message ListStatus { int64 capacity = 1; repeated string values = 2; }
+    string state = 1;
+    string address = 2;
+    repeated Port ports = 3;
+    PlayerStatus players = 4;
+    map<string, CounterStatus> counters = 5;
+    map<string, ListStatus> lists = 6;
+    repeated Address addresses = 7;
+  }
+}
+
