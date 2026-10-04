@@ -11,9 +11,20 @@
   <name>Agones Java SDK</name>
   <description>Java client SDK for the Agones game server sidecar</description>
   <url>https://github.com/ArkMillion/Agones-Java-Sdk</url>
+  <licenses>
+    <license><name>Apache License, Version 2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0.txt</url><distribution>repo</distribution></license>
+  </licenses>
+  <scm>
+    <connection>scm:git:https://github.com/ArkMillion/Agones-Java-Sdk.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/ArkMillion/Agones-Java-Sdk.git</developerConnection>
+    <url>https://github.com/ArkMillion/Agones-Java-Sdk</url>
+  </scm>
 
   <modules>
     <module>agones-sdk-java</module>
+    <module>agones-sdk-java-micrometer</module>
+    <module>agones-sdk-java-flow</module>
+    <module>examples/simple-game-server</module>
   </modules>
 
   <properties>
@@ -79,6 +90,20 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-source-plugin</artifactId><version>3.3.1</version><executions><execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution></executions></plugin>
+          <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-javadoc-plugin</artifactId><version>3.11.2</version><executions><execution><id>attach-javadocs</id><goals><goal>jar</goal></goals></execution></executions></plugin>
+          <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-gpg-plugin</artifactId><version>3.2.7</version><executions><execution><id>sign</id><phase>verify</phase><goals><goal>sign</goal></goals></execution></executions></plugin>
+          <plugin><groupId>org.sonatype.central</groupId><artifactId>central-publishing-maven-plugin</artifactId><version>0.8.0</version><extensions>true</extensions><configuration><publishingServerId>central</publishingServerId><autoPublish>true</autoPublish></configuration></plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
 
 

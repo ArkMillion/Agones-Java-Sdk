@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,6 +85,20 @@ class AgonesSdkTest {
         sdk.health(); assertEquals(1, core.health.get()); sdk.close(); sdk.close();
     }
 
+    @Test void watchDeliversMappedUpdates() throws Exception {
+        CountDownLatch received = new CountDownLatch(1);
+        AutoCloseable watch = sdk.watchGameServer(value -> { if ("Ready".equals(value.getStatus().getState())) received.countDown(); });
+        assertTrue(received.await(2, TimeUnit.SECONDS));
+        watch.close();
+    }
+
+    @Test void concurrentAsyncCallsAreThreadSafe() throws Exception {
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> calls = new java.util.ArrayList<java.util.concurrent.CompletableFuture<Void>>();
+        for (int i = 0; i < 64; i++) calls.add(sdk.readyAsync());
+        java.util.concurrent.CompletableFuture.allOf(calls.toArray(new java.util.concurrent.CompletableFuture<?>[0])).get(5, TimeUnit.SECONDS);
+        assertEquals(64, core.ready.get());
+    }
+
     private static final class FakeCore extends SDKGrpc.SDKImplBase {
         final AtomicInteger ready = new AtomicInteger(), allocate = new AtomicInteger(), health = new AtomicInteger();
         final AtomicLong reserveSeconds = new AtomicLong();
@@ -102,14 +117,17 @@ class AgonesSdkTest {
             };
         }
         @Override public void getGameServer(Empty request, StreamObserver<GameServer> response) {
-            GameServer value = GameServer.newBuilder()
+            response.onNext(gameServer()); response.onCompleted();
+        }
+        @Override public void watchGameServer(Empty request, StreamObserver<GameServer> response) { response.onNext(gameServer()); }
+        private static GameServer gameServer() {
+            return GameServer.newBuilder()
                     .setObjectMeta(GameServer.ObjectMeta.newBuilder().setName("server-1").putLabels("mode", "ranked"))
                     .setSpec(GameServer.Spec.newBuilder().setHealth(GameServer.Spec.Health.newBuilder().setPeriodSeconds(2)))
                     .setStatus(GameServer.Status.newBuilder().setState("Ready").setAddress("127.0.0.1")
                             .putCounters("rooms", GameServer.Status.CounterStatus.newBuilder().setCount(2).setCapacity(10).build())
                             .putLists("players", GameServer.Status.ListStatus.newBuilder().setCapacity(5).addValues("p1").build()))
                     .build();
-            response.onNext(value); response.onCompleted();
         }
         private static void ok(StreamObserver<Empty> response) { response.onNext(Empty.getDefaultInstance()); response.onCompleted(); }
     }

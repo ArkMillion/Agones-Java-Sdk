@@ -41,6 +41,7 @@ public final class AgonesSdk implements AutoCloseable {
     private final boolean ownsExecutor;
     private final ScheduledExecutorService scheduler;
     private final RpcCalls calls;
+    private final RpcObserver observer;
     private final CountersApi counters;
     private final ListsApi lists;
     private final List<AutoCloseable> backgroundTasks = new CopyOnWriteArrayList<AutoCloseable>();
@@ -66,7 +67,8 @@ public final class AgonesSdk implements AutoCloseable {
             this.ownsExecutor = false;
         }
         this.scheduler = Executors.newSingleThreadScheduledExecutor(daemonFactory("agones-scheduler"));
-        this.calls = new RpcCalls(asyncExecutor, builder.observer);
+        this.observer = builder.observer;
+        this.calls = new RpcCalls(asyncExecutor, observer);
         this.counters = new CountersApi(() -> cn.arkmillion.agones.internal.proto.beta.SDKGrpc.newBlockingStub(channel)
                 .withDeadlineAfter(deadlineMillis, TimeUnit.MILLISECONDS), calls);
         this.lists = new ListsApi(() -> cn.arkmillion.agones.internal.proto.beta.SDKGrpc.newBlockingStub(channel)
@@ -185,12 +187,16 @@ public final class AgonesSdk implements AutoCloseable {
         void start() { future = scheduler.scheduleAtFixedRate(this::tick, 0, periodMillis, TimeUnit.MILLISECONDS); }
         private void tick() {
             if (!running.get()) return;
-            try { stream().onNext(EMPTY); } catch (Throwable error) { stream = null; LOG.warn("Agones health ping failed; retrying", error); }
+            try {
+                long started = System.nanoTime(); stream().onNext(EMPTY); observer.onSuccess("health", System.nanoTime() - started);
+            } catch (Throwable error) {
+                stream = null; observer.onFailure("health", 0, error); LOG.warn("Agones health ping failed; retrying", error);
+            }
         }
         private synchronized StreamObserver<Empty> stream() {
             if (stream == null) stream = SDKGrpc.newStub(channel).health(new StreamObserver<Empty>() {
                 public void onNext(Empty value) { }
-                public void onError(Throwable error) { stream = null; LOG.warn("Agones health stream disconnected; retrying", error); }
+                public void onError(Throwable error) { stream = null; observer.onFailure("health", 0, error); LOG.warn("Agones health stream disconnected; retrying", error); }
                 public void onCompleted() { stream = null; }
             });
             return stream;
