@@ -2,11 +2,11 @@ package cn.arkmillion.agones;
 
 import com.google.protobuf.Int64Value;
 import cn.arkmillion.agones.internal.RpcCalls;
-import cn.arkmillion.agones.internal.proto.beta.Counter;
 import cn.arkmillion.agones.internal.proto.beta.CounterUpdateRequest;
 import cn.arkmillion.agones.internal.proto.beta.GetCounterRequest;
 import cn.arkmillion.agones.internal.proto.beta.SDKGrpc;
 import cn.arkmillion.agones.internal.proto.beta.UpdateCounterRequest;
+import cn.arkmillion.agones.model.Counter;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -16,6 +16,8 @@ public final class CountersApi {
     private final RpcCalls calls;
     CountersApi(Supplier<SDKGrpc.SDKBlockingStub> stub, RpcCalls calls) { this.stub = stub; this.calls = calls; }
 
+    public Counter get(String name) { requireName(name); return calls.call("counters.get", () -> fromProto(getDirect(name))); }
+    public CompletableFuture<Counter> getAsync(String name) { requireName(name); return calls.async("counters.get", () -> fromProto(getDirect(name))); }
     public long getCount(String name) { return get(name).getCount(); }
     public CompletableFuture<Long> getCountAsync(String name) { return calls.async("counters.getCount", () -> getDirect(name).getCount()); }
     public void setCount(String name, long value) { update(name, Int64Value.of(value), null, 0); }
@@ -29,16 +31,18 @@ public final class CountersApi {
     public void setCapacity(String name, long value) { requireNonNegative(value, "capacity"); update(name, null, Int64Value.of(value), 0); }
     public CompletableFuture<Void> setCapacityAsync(String name, long value) { requireNonNegative(value, "capacity"); return updateAsync("counters.setCapacity", name, null, Int64Value.of(value), 0); }
 
-    private Counter get(String name) { requireName(name); return calls.call("counters.get", () -> getDirect(name)); }
-    private Counter getDirect(String name) { requireName(name); return stub.get().getCounter(GetCounterRequest.newBuilder().setName(name).build()); }
+    private cn.arkmillion.agones.internal.proto.beta.Counter getDirect(String name) { requireName(name); return stub.get().getCounter(GetCounterRequest.newBuilder().setName(name).build()); }
     private void update(String name, Int64Value count, Int64Value capacity, long diff) {
         requireName(name); calls.run("counters.update", () -> updateDirect(name, count, capacity, diff));
     }
-    private Counter updateDirect(String name, Int64Value count, Int64Value capacity, long diff) {
+    private cn.arkmillion.agones.internal.proto.beta.Counter updateDirect(String name, Int64Value count, Int64Value capacity, long diff) {
         CounterUpdateRequest.Builder update = CounterUpdateRequest.newBuilder().setName(name).setCountDiff(diff);
         if (count != null) update.setCount(count);
         if (capacity != null) update.setCapacity(capacity);
         return stub.get().updateCounter(UpdateCounterRequest.newBuilder().setCounterUpdateRequest(update).build());
+    }
+    private static Counter fromProto(cn.arkmillion.agones.internal.proto.beta.Counter value) {
+        return new Counter(value.getName(), value.getCount(), value.getCapacity());
     }
     private CompletableFuture<Void> updateAsync(String operation, String name, Int64Value count, Int64Value capacity, long diff) {
         requireName(name); return calls.asyncRun(operation, () -> updateDirect(name, count, capacity, diff));

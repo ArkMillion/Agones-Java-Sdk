@@ -1,6 +1,15 @@
 package cn.arkmillion.agones.internal;
 
+import cn.arkmillion.agones.model.Address;
+import cn.arkmillion.agones.model.Counter;
 import cn.arkmillion.agones.model.GameServer;
+import cn.arkmillion.agones.model.GameServerList;
+import cn.arkmillion.agones.model.GameServerSpec;
+import cn.arkmillion.agones.model.GameServerStatus;
+import cn.arkmillion.agones.model.HealthConfiguration;
+import cn.arkmillion.agones.model.ObjectMeta;
+import cn.arkmillion.agones.model.PlayerStatus;
+import cn.arkmillion.agones.model.Port;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,32 +20,32 @@ public final class GameServerMapper {
 
     public static GameServer fromProto(cn.arkmillion.agones.internal.proto.GameServer value) {
         cn.arkmillion.agones.internal.proto.GameServer.ObjectMeta m = value.getObjectMeta();
-        GameServer.ObjectMeta meta = new GameServer.ObjectMeta(m.getName(), m.getNamespace(), m.getUid(),
+        ObjectMeta meta = new ObjectMeta(m.getName(), m.getNamespace(), m.getUid(),
                 m.getResourceVersion(), m.getGeneration(), timestamp(m.getCreationTimestamp()),
                 timestamp(m.getDeletionTimestamp()), m.getAnnotationsMap(), m.getLabelsMap());
         cn.arkmillion.agones.internal.proto.GameServer.Spec.Health h = value.getSpec().getHealth();
-        GameServer.Spec spec = new GameServer.Spec(new GameServer.Health(h.getDisabled(), h.getPeriodSeconds(),
+        GameServerSpec spec = new GameServerSpec(new HealthConfiguration(h.getDisabled(), h.getPeriodSeconds(),
                 h.getFailureThreshold(), h.getInitialDelaySeconds()));
         cn.arkmillion.agones.internal.proto.GameServer.Status s = value.getStatus();
-        ArrayList<GameServer.Address> addresses = new ArrayList<GameServer.Address>();
+        ArrayList<Address> addresses = new ArrayList<Address>();
         for (cn.arkmillion.agones.internal.proto.GameServer.Status.Address a : s.getAddressesList()) {
-            addresses.add(new GameServer.Address(a.getType(), a.getAddress()));
+            addresses.add(new Address(a.getType(), a.getAddress()));
         }
-        ArrayList<GameServer.Port> ports = new ArrayList<GameServer.Port>();
+        ArrayList<Port> ports = new ArrayList<Port>();
         for (cn.arkmillion.agones.internal.proto.GameServer.Status.Port p : s.getPortsList()) {
-            ports.add(new GameServer.Port(p.getName(), p.getPort()));
+            ports.add(new Port(p.getName(), p.getPort()));
         }
         cn.arkmillion.agones.internal.proto.GameServer.Status.PlayerStatus p = s.getPlayers();
-        GameServer.PlayerStatus players = new GameServer.PlayerStatus(p.getCount(), p.getCapacity(), p.getIdsList());
-        Map<String, GameServer.CounterStatus> counters = new LinkedHashMap<String, GameServer.CounterStatus>();
+        PlayerStatus players = new PlayerStatus(p.getCount(), p.getCapacity(), p.getIdsList());
+        Map<String, Counter> counters = new LinkedHashMap<String, Counter>();
         for (Map.Entry<String, cn.arkmillion.agones.internal.proto.GameServer.Status.CounterStatus> e : s.getCountersMap().entrySet()) {
-            counters.put(e.getKey(), new GameServer.CounterStatus(e.getValue().getCount(), e.getValue().getCapacity()));
+            counters.put(e.getKey(), new Counter(e.getKey(), e.getValue().getCount(), e.getValue().getCapacity()));
         }
-        Map<String, GameServer.ListStatus> lists = new LinkedHashMap<String, GameServer.ListStatus>();
+        Map<String, GameServerList> lists = new LinkedHashMap<String, GameServerList>();
         for (Map.Entry<String, cn.arkmillion.agones.internal.proto.GameServer.Status.ListStatus> e : s.getListsMap().entrySet()) {
-            lists.put(e.getKey(), new GameServer.ListStatus(e.getValue().getCapacity(), e.getValue().getValuesList()));
+            lists.put(e.getKey(), new GameServerList(e.getKey(), e.getValue().getCapacity(), e.getValue().getValuesList()));
         }
-        return new GameServer(meta, spec, new GameServer.Status(s.getState(), s.getAddress(), addresses, ports,
+        return new GameServer(meta, spec, new GameServerStatus(s.getState(), s.getAddress(), addresses, ports,
                 players, counters, lists));
     }
 
