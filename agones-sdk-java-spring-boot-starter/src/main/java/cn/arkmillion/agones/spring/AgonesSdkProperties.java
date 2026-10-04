@@ -7,13 +7,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("agones.sdk")
 public class AgonesSdkProperties {
     private boolean enabled = true;
-    private String host = environment("AGONES_SDK_GRPC_HOST", "localhost");
+    private String host = environment("AGONES_SDK_GRPC_HOST", "127.0.0.1");
     private int port = environmentPort();
-    private Duration deadline = Duration.ofSeconds(10);
+    private Duration deadline = Duration.ofSeconds(5);
     private boolean tls;
     private boolean healthEnabled = true;
     private Duration healthPeriod = Duration.ofSeconds(2);
-    private boolean shutdownOnExit = true;
+    private boolean shutdownOnExit;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }

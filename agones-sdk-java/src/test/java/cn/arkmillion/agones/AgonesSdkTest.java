@@ -13,6 +13,7 @@ import cn.arkmillion.agones.internal.proto.beta.UpdateCounterRequest;
 import cn.arkmillion.agones.internal.proto.beta.UpdateListRequest;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
+import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -21,7 +22,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -87,9 +90,40 @@ class AgonesSdkTest {
 
     @Test void watchDeliversMappedUpdates() throws Exception {
         CountDownLatch received = new CountDownLatch(1);
-        AutoCloseable watch = sdk.watchGameServer(value -> { if ("Ready".equals(value.getStatus().getState())) received.countDown(); });
+        WatchHandle watch = sdk.watchGameServer(value -> { if ("Ready".equals(value.getStatus().getState())) received.countDown(); });
         assertTrue(received.await(2, TimeUnit.SECONDS));
+        assertEquals(WatchState.ACTIVE, watch.getState());
         watch.close();
+        assertEquals(WatchState.CLOSED, watch.getState());
+    }
+
+    @Test void nativeAsyncCallDoesNotRequireABlockingWorker() throws Exception {
+        core.deferReady.set(true);
+        java.util.concurrent.CompletableFuture<Void> future = sdk.readyAsync();
+        assertFalse(future.isDone());
+        core.completeDeferredReady();
+        future.get(2, TimeUnit.SECONDS);
+    }
+
+    @Test void asyncFailureRetainsGrpcStatusAndOperation() throws Exception {
+        core.readyFailure.set(Status.PERMISSION_DENIED);
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                () -> sdk.readyAsync().get(2, TimeUnit.SECONDS));
+        AgonesSdkException error = (AgonesSdkException) failure.getCause();
+        assertEquals(Status.Code.PERMISSION_DENIED, error.getStatusCode());
+        assertEquals("ready", error.getOperation());
+    }
+
+    @Test void healthSessionHasAnIdempotentLifecycle() throws Exception {
+        HealthSession session = sdk.startHealthSession(Duration.ofSeconds(1));
+        long limit = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (core.health.get() == 0 && System.nanoTime() < limit) Thread.sleep(10);
+        assertTrue(session.isRunning());
+        assertTrue(core.health.get() > 0);
+        assertFalse(session.getLastFailure().isPresent());
+        session.stop();
+        session.stop();
+        assertFalse(session.isRunning());
     }
 
     @Test void concurrentAsyncCallsAreThreadSafe() throws Exception {
@@ -101,9 +135,19 @@ class AgonesSdkTest {
 
     private static final class FakeCore extends SDKGrpc.SDKImplBase {
         final AtomicInteger ready = new AtomicInteger(), allocate = new AtomicInteger(), health = new AtomicInteger();
+        final AtomicBoolean deferReady = new AtomicBoolean();
+        final AtomicReference<Status> readyFailure = new AtomicReference<Status>();
+        final AtomicReference<StreamObserver<Empty>> deferredReady = new AtomicReference<StreamObserver<Empty>>();
         final AtomicLong reserveSeconds = new AtomicLong();
         final AtomicReference<String> label = new AtomicReference<String>(), annotation = new AtomicReference<String>();
-        @Override public void ready(Empty request, StreamObserver<Empty> response) { ready.incrementAndGet(); ok(response); }
+        @Override public void ready(Empty request, StreamObserver<Empty> response) {
+            ready.incrementAndGet();
+            Status failure = readyFailure.get();
+            if (failure != null) { response.onError(failure.asRuntimeException()); return; }
+            if (deferReady.get()) { deferredReady.set(response); return; }
+            ok(response);
+        }
+        void completeDeferredReady() { ok(deferredReady.getAndSet(null)); }
         @Override public void allocate(Empty request, StreamObserver<Empty> response) { allocate.incrementAndGet(); ok(response); }
         @Override public void shutdown(Empty request, StreamObserver<Empty> response) { ok(response); }
         @Override public void reserve(cn.arkmillion.agones.internal.proto.Duration request, StreamObserver<Empty> response) { reserveSeconds.set(request.getSeconds()); ok(response); }

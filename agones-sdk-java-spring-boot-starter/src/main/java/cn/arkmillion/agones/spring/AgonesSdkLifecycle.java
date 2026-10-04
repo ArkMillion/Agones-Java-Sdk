@@ -1,7 +1,7 @@
 package cn.arkmillion.agones.spring;
 
 import cn.arkmillion.agones.AgonesSdk;
-import cn.arkmillion.agones.HealthPing;
+import cn.arkmillion.agones.HealthSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -12,17 +12,17 @@ public final class AgonesSdkLifecycle implements SmartLifecycle {
     private final AgonesSdk sdk;
     private final AgonesSdkProperties properties;
     private volatile boolean running;
-    private volatile HealthPing healthPing;
+    private volatile HealthSession healthSession;
     AgonesSdkLifecycle(AgonesSdk sdk, AgonesSdkProperties properties) { this.sdk = sdk; this.properties = properties; }
 
     @Override public synchronized void start() {
         if (running) return;
-        if (properties.isHealthEnabled()) healthPing = sdk.startHealthPing(properties.getHealthPeriod());
+        if (properties.isHealthEnabled()) healthSession = sdk.startHealthSession(properties.getHealthPeriod());
         running = true;
     }
     @Override public synchronized void stop() {
         if (!running) return;
-        HealthPing ping = healthPing; if (ping != null) ping.stop();
+        HealthSession session = healthSession; if (session != null) session.stop();
         if (properties.isShutdownOnExit()) try { sdk.shutdown(); } catch (RuntimeException error) { LOG.warn("Agones graceful shutdown failed", error); }
         running = false;
     }

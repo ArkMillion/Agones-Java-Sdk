@@ -30,6 +30,9 @@ public final class AgonesSdkServerContainer extends GenericContainer<AgonesSdkSe
 
     public String getGrpcHost() { return getHost(); }
     public int getGrpcPort() { return getMappedPort(GRPC_PORT); }
+    /** Returns the configured image without triggering Docker environment discovery. */
+    public String getConfiguredImageName() { return DEFAULT_IMAGE; }
     public AgonesSdk newSdk() { return AgonesSdk.builder().address(getGrpcHost(), getGrpcPort()).build(); }
+    public AgonesSdk createClient() { return newSdk(); }
 }
 
