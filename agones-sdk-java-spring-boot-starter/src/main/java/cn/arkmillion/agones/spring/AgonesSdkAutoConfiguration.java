@@ -17,23 +17,25 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(prefix = "agones.sdk", name = "enabled", matchIfMissing = true)
 @EnableConfigurationProperties(AgonesSdkProperties.class)
 public class AgonesSdkAutoConfiguration {
-    @Bean(destroyMethod = "close")
-    @ConditionalOnMissingBean
-    public AgonesSdk agonesSdk(AgonesSdkProperties properties, ObjectProvider<RpcObserver> observer,
-                               ObjectProvider<ManagedChannel> channel) {
-        AgonesSdk.Builder builder = AgonesSdk.builder().deadline(properties.getDeadline()).tls(properties.isTls());
-        ManagedChannel selectedChannel = channel.getIfAvailable();
-        if (selectedChannel != null) builder.channel(selectedChannel);
-        else builder.address(properties.getHost(), properties.getPort());
-        RpcObserver selected = observer.getIfAvailable();
-        if (selected != null) builder.observer(selected);
-        return builder.build();
-    }
+  @Bean(destroyMethod = "close")
+  @ConditionalOnMissingBean
+  public AgonesSdk agonesSdk(
+      AgonesSdkProperties properties,
+      ObjectProvider<RpcObserver> observer,
+      ObjectProvider<ManagedChannel> channel) {
+    AgonesSdk.Builder builder =
+        AgonesSdk.builder().deadline(properties.getDeadline()).tls(properties.isTls());
+    ManagedChannel selectedChannel = channel.getIfAvailable();
+    if (selectedChannel != null) builder.channel(selectedChannel);
+    else builder.address(properties.getHost(), properties.getPort());
+    RpcObserver selected = observer.getIfAvailable();
+    if (selected != null) builder.observer(selected);
+    return builder.build();
+  }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public AgonesSdkLifecycle agonesSdkLifecycle(AgonesSdk sdk, AgonesSdkProperties properties) {
-        return new AgonesSdkLifecycle(sdk, properties);
-    }
+  @Bean
+  @ConditionalOnMissingBean
+  public AgonesSdkLifecycle agonesSdkLifecycle(AgonesSdk sdk, AgonesSdkProperties properties) {
+    return new AgonesSdkLifecycle(sdk, properties);
+  }
 }
-

@@ -1,5 +1,7 @@
 package cn.arkmillion.agones;
 
-/** @deprecated use {@link HealthSession}. */
+/**
+ * @deprecated use {@link HealthSession}.
+ */
 @Deprecated
-public interface HealthPing extends HealthSession { }
+public interface HealthPing extends HealthSession {}
