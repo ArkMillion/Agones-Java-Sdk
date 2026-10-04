@@ -11,6 +11,8 @@
 | `agones-sdk-java` | 8+ | 核心 SDK、不可变模型、同步/异步 API |
 | `agones-sdk-java-micrometer` | 8+ | RPC 时延、调用结果与健康失败指标 |
 | `agones-sdk-java-flow` | 9+ | `Flow.Publisher<GameServer>` Watch 适配器 |
+| `agones-sdk-java-spring-boot-starter` | 8+ | 自动装配、健康心跳与优雅停机 |
+| `agones-sdk-java-testcontainers` | 8+ | Agones 1.61.0 本地模式测试容器 |
 | `simple-game-server` | 8+ | 最小生命周期示例 |
 
 ## 快速开始
@@ -61,6 +63,36 @@ AgonesSdk sdk = AgonesSdk.builder()
 ```
 
 模块暴露 `agones.sdk.rpc.duration`、`agones.sdk.rpc.calls` 和 `agones.sdk.health.failures`。
+
+## Spring Boot
+
+加入 `agones-sdk-java-spring-boot-starter` 后会自动创建 `AgonesSdk` Bean、启动健康心跳，并在应用停止时请求 Agones Shutdown。常用配置如下：
+
+```yaml
+agones:
+  sdk:
+    host: localhost
+    port: 9357
+    deadline: 5s
+    health-enabled: true
+    health-period: 2s
+    shutdown-on-exit: true
+```
+
+设置 `agones.sdk.enabled=false` 可完全关闭自动配置；提供自定义 `AgonesSdk`、`ManagedChannel` 或 `RpcObserver` Bean 时 Starter 会复用它。
+
+## Testcontainers
+
+```java
+try (AgonesSdkServerContainer sidecar = new AgonesSdkServerContainer()) {
+    sidecar.start();
+    try (AgonesSdk sdk = sidecar.newSdk()) {
+        sdk.ready();
+    }
+}
+```
+
+容器固定使用 `us-docker.pkg.dev/agones-images/release/agones-sdk:1.61.0` 并以 `--local --address 0.0.0.0` 启动。可用 `withGameServerConfig(path)` 加载带 Counters/Lists 的 GameServer YAML。
 
 ## 构建与测试
 

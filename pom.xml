@@ -24,6 +24,8 @@
     <module>agones-sdk-java</module>
     <module>agones-sdk-java-micrometer</module>
     <module>agones-sdk-java-flow</module>
+    <module>agones-sdk-java-spring-boot-starter</module>
+    <module>agones-sdk-java-testcontainers</module>
     <module>examples/simple-game-server</module>
   </modules>
 
@@ -36,6 +38,8 @@
     <slf4j.version>2.0.17</slf4j.version>
     <junit.version>5.13.4</junit.version>
     <micrometer.version>1.15.4</micrometer.version>
+    <spring-boot.version>2.7.18</spring-boot.version>
+    <testcontainers.version>1.21.4</testcontainers.version>
   </properties>
 
   <dependencyManagement>
@@ -62,6 +66,9 @@
         <artifactId>micrometer-core</artifactId>
         <version>${micrometer.version}</version>
       </dependency>
+      <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><version>${spring-boot.version}</version></dependency>
+      <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-test</artifactId><version>${spring-boot.version}</version></dependency>
+      <dependency><groupId>org.testcontainers</groupId><artifactId>testcontainers</artifactId><version>${testcontainers.version}</version></dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
